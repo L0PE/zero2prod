@@ -4,7 +4,7 @@ use zero2prod::configuration::Settings;
 
 pub struct TestApp {
     pub address: String,
-    pub db_poll: PgPool
+    pub db_poll: PgPool,
 }
 #[tokio::test]
 async fn health_check_returns_expected_result() {
@@ -80,13 +80,16 @@ async fn spawn_app() -> TestApp {
     let port = listener.local_addr().unwrap().port();
 
     let configuration = Settings::new().expect("Failed to read configuration");
-    let db_connection = PgPool::connect(&configuration.database_settings.get_connection_string()).await.expect("Failed to connect to the database.");
-    let server = zero2prod::startup::run(listener, db_connection.clone()).expect("Failed to start server");
+    let db_connection = PgPool::connect(&configuration.database_settings.get_connection_string())
+        .await
+        .expect("Failed to connect to the database.");
+    let server =
+        zero2prod::startup::run(listener, db_connection.clone()).expect("Failed to start server");
 
     let _ = tokio::spawn(server);
 
     TestApp {
         address: format!("http://127.0.0.1:{}", port),
-        db_poll: db_connection
+        db_poll: db_connection,
     }
 }
