@@ -1,6 +1,7 @@
-use sqlx::{query, PgPool};
+use sqlx::{query, Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
-use zero2prod::configuration::Settings;
+use uuid::Uuid;
+use zero2prod::configuration::{DatabaseSettings, Settings};
 
 pub struct TestApp {
     pub address: String,
@@ -79,17 +80,39 @@ async fn spawn_app() -> TestApp {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind a random port");
     let port = listener.local_addr().unwrap().port();
 
-    let configuration = Settings::new().expect("Failed to read configuration");
-    let db_connection = PgPool::connect(&configuration.database_settings.get_connection_string())
-        .await
-        .expect("Failed to connect to the database.");
+    let mut configuration = Settings::new().expect("Failed to read configuration");
+    configuration.database_settings.database_name = Uuid::new_v4().to_string();
+    let db_pool = configure_database(&configuration.database_settings).await;
+
     let server =
-        zero2prod::startup::run(listener, db_connection.clone()).expect("Failed to start server");
+        zero2prod::startup::run(listener, db_pool.clone()).expect("Failed to start server");
 
     let _ = tokio::spawn(server);
 
     TestApp {
         address: format!("http://127.0.0.1:{}", port),
-        db_poll: db_connection,
+        db_poll: db_pool,
     }
+}
+
+pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
+    let mut db_connection = PgConnection::connect(&config.get_connection_string_without_db_name())
+        .await
+        .expect("Failed to connect to the Postgres.");
+
+    db_connection
+        .execute(format!(r#"CREATE DATABASE "{}";"#, &config.database_name).as_str())
+        .await
+        .expect("Failed to create datbase.");
+
+    let db_pool = PgPool::connect(&config.get_connection_string())
+        .await
+        .expect("Failed to connect to the database.");
+
+    sqlx::migrate!("./migrations")
+        .run(&db_pool)
+        .await
+        .expect("Failed to Migrate database");
+
+    db_pool
 }
