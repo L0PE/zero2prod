@@ -1,0 +1,7 @@
+application_port:
+database_settings:
+  host:
+  port:
+  username:
+  password:
+  database_name:
