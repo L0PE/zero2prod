@@ -15,13 +15,13 @@ pub async fn subscribe(
 ) -> impl Responder {
     let request_id = Uuid::new_v4();
 
-    log::info!(
+    tracing::info!(
         "request_id {} - Adding '{}', '{}' as new subscriber.",
         request_id,
         subscribe_data.name,
         subscribe_data.email
     );
-    log::info!(
+    tracing::info!(
         "request_id {} - Saving new subscriber details to the database!",
         request_id
     );
@@ -40,7 +40,7 @@ pub async fn subscribe(
     .await
     {
         Ok(_) => {
-            log::info!(
+            tracing::info!(
                 "request_id {} - New subscriber details have been saved!",
                 request_id
             );
