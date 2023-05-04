@@ -15,7 +15,7 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Unable to connect to the database");
 
-    let subscriber = get_subscriber("zero2prod".into(), "info".into());
+    let subscriber = get_subscriber("zero2prod".into(), "info".into(), std::io::stdout);
     init_subscriber(subscriber);
 
     run(listener, database_pool)?.await
