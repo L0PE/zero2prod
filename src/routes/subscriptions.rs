@@ -10,23 +10,34 @@ pub struct SubscribeData {
     email: String,
 }
 
+#[tracing::instrument(
+    name = "Adding new subscriber.",
+    skip(subscribe_data, connection),
+    fields(
+        request_id = %Uuid::new_v4(),
+        subscriber_name = %subscribe_data.name,
+        subscriber_email = %subscribe_data.email
+    )
+)]
 pub async fn subscribe(
     subscribe_data: web::Form<SubscribeData>,
     connection: web::Data<PgPool>,
 ) -> impl Responder {
-    let request_id = Uuid::new_v4();
+    match insert_subscriber(&connection, &subscribe_data).await {
+        Ok(_) => HttpResponse::Ok().finish(),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
 
-    let request_span = tracing::info_span!(
-        "Adding new subscriber.",
-        %request_id,
-        subscriber_name = %subscribe_data.name,
-        subscriber_email = %subscribe_data.email
-    );
-    let _request_span_guard = request_span.enter();
-
-    let query_span = tracing::info_span!("Saving new subscriber details to the database!",);
-
-    match sqlx::query!(
+#[tracing::instrument(
+    name = "Saving new subscriber details to the database!",
+    skip(subscribe_data, connection)
+)]
+pub async fn insert_subscriber(
+    connection: &PgPool,
+    subscribe_data: &SubscribeData,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, name, email, subscribed_at)
         VALUES ($1, $2, $3, $4)
@@ -36,14 +47,12 @@ pub async fn subscribe(
         subscribe_data.email,
         Utc::now()
     )
-    .execute(connection.get_ref())
-    .instrument(query_span)
+    .execute(connection)
     .await
-    {
-        Ok(_) => HttpResponse::Ok().finish(),
-        Err(e) => {
-            tracing::error!("Failed to execute query {:?}!", e);
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+    .map_err(|e| {
+        tracing::error!("Failed to execute query {:?}!", e);
+        e
+    })?;
+
+    Ok(())
 }
