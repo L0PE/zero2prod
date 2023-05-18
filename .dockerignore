@@ -1,0 +1,9 @@
+.idea
+.cargo
+.github
+.env
+Dockerfile
+tests
+scripts
+target
+migrations
