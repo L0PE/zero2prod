@@ -1,4 +1,6 @@
-application_port:
+application_settings:
+  host:
+  port:
 database_settings:
   host:
   port:
