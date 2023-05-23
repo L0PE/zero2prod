@@ -17,19 +17,19 @@ services:
     routes:
       - path: /
     envs:
-      - key: APP_DATABASE_SETTINGS__USERNAME
+      - key: APP__DATABASE_SETTINGS__USERNAME
         scope: RUN_TIME
         value: ${newsletter.USERNAME}
-      - key: APP_DATABASE_SETTINGS__PASSWORD
+      - key: APP__DATABASE_SETTINGS__PASSWORD
         scope: RUN_TIME
         value: ${newsletter.PASSWORD}
-      - key: APP_DATABASE_SETTINGS__HOST
+      - key: APP__DATABASE_SETTINGS__HOST
         scope: RUN_TIME
         value: ${newsletter.HOSTNAME}
-      - key: APP_DATABASE_SETTINGS__PORT
+      - key: APP__DATABASE_SETTINGS__PORT
         scope: RUN_TIME
         value: ${newsletter.PORT}
-      - key: APP_DATABASE_SETTINGS__DATABASE_NAME
+      - key: APP__DATABASE_SETTINGS__DATABASE_NAME
         scope: RUN_TIME
         value: ${newsletter.DATABASE}
 
