@@ -46,6 +46,8 @@ then
       --name "postgres_$(date '+%s')" \
       postgres -N 1000
       # ^ Increased maximum number of connections for testing purposes
+  echo >&2 "lounched"
+
 fi
 
 # Keep pinging Postgres until it's ready to accept commands

@@ -1,6 +1,9 @@
 use config::{Config, ConfigError, File};
 use secrecy::ExposeSecret;
 use secrecy::Secret;
+use serde_aux::field_attributes::deserialize_number_from_string;
+use sqlx::ConnectOptions;
+use sqlx::postgres::{PgConnectOptions, PgSslMode};
 
 #[derive(serde::Deserialize)]
 pub struct Settings {
@@ -21,6 +24,7 @@ impl Settings {
             .add_source(File::from(
                 configuration_directory.join(environment.as_str()),
             ))
+            .add_source(config::Environment::with_prefix("APP").separator("__"))
             .build()?;
 
         settings.try_deserialize()
@@ -32,35 +36,36 @@ pub struct DatabaseSettings {
     pub username: String,
     pub password: Secret<String>,
     pub host: String,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub database_name: String,
+    pub require_ssl: bool,
 }
 
 impl DatabaseSettings {
-    pub fn get_connection_string(&self) -> Secret<String> {
-        Secret::new(format!(
-            "postgres://{}:{}@{}:{}/{}",
-            self.username,
-            self.password.expose_secret(),
-            self.host,
-            self.port,
-            self.database_name
-        ))
+    pub fn get_connection_options_without_db(&self) -> PgConnectOptions {
+        let ssl_mode = if self.require_ssl {
+            PgSslMode::Require
+        } else { PgSslMode::Prefer };
+
+        PgConnectOptions::new()
+            .host(&self.host)
+            .port(self.port)
+            .username(&self.username)
+            .password(&self.password.expose_secret())
+            .ssl_mode(ssl_mode)
     }
 
-    pub fn get_connection_string_without_db_name(&self) -> Secret<String> {
-        Secret::new(format!(
-            "postgres://{}:{}@{}:{}",
-            self.username,
-            self.password.expose_secret(),
-            self.host,
-            self.port
-        ))
+    pub fn get_connection_options_with_db(&self) -> PgConnectOptions {
+        let mut options = self.get_connection_options_without_db().database(&self.database_name);
+        options.log_statements(tracing::log::LevelFilter::Trace);
+        options
     }
 }
 
 #[derive(serde::Deserialize)]
 pub struct ApplicationSettings {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
 }
