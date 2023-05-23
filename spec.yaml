@@ -17,7 +17,6 @@ services:
     routes:
       - path: /
     envs:
-      - key: APP_
       - key: APP_DATABASE_SETTINGS__USERNAME
         scope: RUN_TIME
         value: ${newsletter.USERNAME}
@@ -34,7 +33,7 @@ services:
         scope: RUN_TIME
         value: ${newsletter.DATABASE}
 
-database:
+databases:
   - engine: PG
     name: newsletter
     num_nodes: 1
