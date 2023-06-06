@@ -90,6 +90,36 @@ async fn subscribe_returns_400_for_not_valid_request_data() {
         );
     }
 }
+#[tokio::test]
+async fn subscribe_returns_400_when_fields_is_present_but_invalid() {
+    let test_app = spawn_app().await;
+    let client = reqwest::Client::new();
+    let test_cases = vec![
+        ("name=&email=email=ursula_le_guin%40gmail.com", "empty name"),
+        ("name=le%20guin&email=", "empty email"),
+        (
+            "name=Ursula&email=not-valid-email",
+            "missing both name and email",
+        ),
+    ];
+
+    for (body, error_message) in test_cases {
+        let response = client
+            .post(&format!("{}/subscribe", &test_app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request");
+
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "The API did not fail with 400 Bad Request when the payload was {}.",
+            error_message
+        );
+    }
+}
 
 async fn spawn_app() -> TestApp {
     Lazy::force(&TRACING);
@@ -113,11 +143,9 @@ async fn spawn_app() -> TestApp {
 }
 
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
-    let mut db_connection = PgConnection::connect_with(
-        &config.get_connection_options_without_db()
-    )
-    .await
-    .expect("Failed to connect to the Postgres.");
+    let mut db_connection = PgConnection::connect_with(&config.get_connection_options_without_db())
+        .await
+        .expect("Failed to connect to the Postgres.");
 
     db_connection
         .execute(format!(r#"CREATE DATABASE "{}";"#, &config.database_name).as_str())

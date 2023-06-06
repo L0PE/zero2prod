@@ -17,7 +17,9 @@ async fn main() -> std::io::Result<()> {
     let database_pool = PgPoolOptions::new()
         .acquire_timeout(std::time::Duration::from_secs(2))
         .connect_lazy_with(
-            configuration.database_settings.get_connection_options_with_db()
+            configuration
+                .database_settings
+                .get_connection_options_with_db(),
         );
 
     let subscriber = get_subscriber("zero2prod".into(), "info".into(), std::io::stdout);
