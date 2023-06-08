@@ -1,8 +1,6 @@
-// use unicode_segmentation::UnicodeSegmentation;
-
 use validator::validate_email;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SubscriberEmail(String);
 
 impl SubscriberEmail {
@@ -11,7 +9,7 @@ impl SubscriberEmail {
             return Ok(Self(email));
         }
 
-        return Err(format!("{} is not valid email!", email));
+        Err(format!("{} is not valid email!", email))
     }
 }
 
