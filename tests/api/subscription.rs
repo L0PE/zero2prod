@@ -5,16 +5,9 @@ use sqlx::query;
 async fn subscribe_returns_200_for_valid_request_data() {
     let test_app = spawn_app().await;
 
-    let client = reqwest::Client::new();
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
-    let response = client
-        .post(&format!("{}/subscribe", &test_app.address))
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body)
-        .send()
-        .await
-        .expect("Failed to execute request");
+    let response = test_app.subscribe_request(body.into()).await;
 
     let saved = query!("SELECT email, name FROM subscriptions")
         .fetch_one(&test_app.db_poll)
@@ -29,7 +22,6 @@ async fn subscribe_returns_200_for_valid_request_data() {
 #[tokio::test]
 async fn subscribe_returns_400_for_not_valid_request_data() {
     let test_app = spawn_app().await;
-    let client = reqwest::Client::new();
     let test_cases = vec![
         ("name=le%20guin", "missing the email"),
         ("email=ursula_le_guin%40gmail.com", "missing the name"),
@@ -37,13 +29,7 @@ async fn subscribe_returns_400_for_not_valid_request_data() {
     ];
 
     for (invalid_body, error_message) in test_cases {
-        let response = client
-            .post(&format!("{}/subscribe", &test_app.address))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(invalid_body)
-            .send()
-            .await
-            .expect("Failed to execute request");
+        let response = test_app.subscribe_request(invalid_body.into()).await;
 
         assert_eq!(
             400,
@@ -56,7 +42,6 @@ async fn subscribe_returns_400_for_not_valid_request_data() {
 #[tokio::test]
 async fn subscribe_returns_400_when_fields_is_present_but_invalid() {
     let test_app = spawn_app().await;
-    let client = reqwest::Client::new();
     let test_cases = vec![
         ("name=&email=email=ursula_le_guin%40gmail.com", "empty name"),
         ("name=le%20guin&email=", "empty email"),
@@ -67,13 +52,7 @@ async fn subscribe_returns_400_when_fields_is_present_but_invalid() {
     ];
 
     for (body, error_message) in test_cases {
-        let response = client
-            .post(&format!("{}/subscribe", &test_app.address))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(body)
-            .send()
-            .await
-            .expect("Failed to execute request");
+        let response = test_app.subscribe_request(body.into()).await;
 
         assert_eq!(
             400,

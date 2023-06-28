@@ -70,3 +70,15 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
 
     db_pool
 }
+
+impl TestApp {
+    pub async fn subscribe_request(&self, body: String) -> reqwest::Response {
+        reqwest::Client::new()
+            .post(format!("{}/subscribe", self.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to send the error")
+    }
+}
