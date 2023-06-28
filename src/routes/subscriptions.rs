@@ -1,4 +1,5 @@
 use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
+use crate::email_client::EmailClient;
 use actix_web::{web, HttpResponse, Responder};
 use chrono::Utc;
 use sqlx::PgPool;
@@ -23,7 +24,7 @@ impl TryFrom<SubscribeData> for NewSubscriber {
 
 #[tracing::instrument(
     name = "Adding new subscriber.",
-    skip(subscribe_data, connection),
+    skip(subscribe_data, connection, email_client),
     fields(
         subscriber_name = %subscribe_data.name,
         subscriber_email = %subscribe_data.email
@@ -32,16 +33,38 @@ impl TryFrom<SubscribeData> for NewSubscriber {
 pub async fn subscribe(
     subscribe_data: web::Form<SubscribeData>,
     connection: web::Data<PgPool>,
+    email_client: web::Data<EmailClient>,
 ) -> impl Responder {
     let new_subscriber: NewSubscriber = match subscribe_data.0.try_into() {
         Ok(new_subscriber) => new_subscriber,
         Err(_) => return HttpResponse::BadRequest().finish(),
     };
 
-    match insert_subscriber(&connection, &new_subscriber).await {
-        Ok(_) => HttpResponse::Ok().finish(),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    if insert_subscriber(&connection, &new_subscriber)
+        .await
+        .is_err()
+    {
+        return HttpResponse::InternalServerError().finish();
     }
+
+    let confirmation_link = "https://my-api.com/subscriptions/confirm";
+    if email_client
+        .send_email(
+            new_subscriber.email,
+            "Welcome!",
+            &format!(
+                "Welcome to our newsletter!<br />\
+                 Click <a href=\"{}\">here</a> to confirm your subscription.",
+                confirmation_link
+            ),
+        )
+        .await
+        .is_err()
+    {
+        return HttpResponse::InternalServerError().finish();
+    }
+
+    HttpResponse::Ok().finish()
 }
 
 #[tracing::instrument(
