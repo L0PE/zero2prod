@@ -1,6 +1,6 @@
 use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
 use crate::email_client::EmailClient;
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -34,7 +34,7 @@ pub async fn subscribe(
     subscribe_data: web::Form<SubscribeData>,
     connection: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
-) -> impl Responder {
+) -> HttpResponse {
     let new_subscriber: NewSubscriber = match subscribe_data.0.try_into() {
         Ok(new_subscriber) => new_subscriber,
         Err(_) => return HttpResponse::BadRequest().finish(),
@@ -47,20 +47,7 @@ pub async fn subscribe(
         return HttpResponse::InternalServerError().finish();
     }
 
-    let confirmation_link = "https://my-api.com/subscriptions/confirm";
-    if email_client
-        .send_email(
-            new_subscriber.email,
-            "Welcome!",
-            &format!(
-                "Welcome to our newsletter!<br />\
-                 Click <a href=\"{}\">here</a> to confirm your subscription.",
-                confirmation_link
-            ),
-        )
-        .await
-        .is_err()
-    {
+    if send_confirmation_email(&email_client, new_subscriber).await.is_err() {
         return HttpResponse::InternalServerError().finish();
     }
 
@@ -93,4 +80,21 @@ pub async fn insert_subscriber(
     })?;
 
     Ok(())
+}
+
+pub async fn send_confirmation_email(email_client: &EmailClient, new_subscriber: NewSubscriber) ->Result<(), reqwest::Error> {
+    let confirmation_link = "https://my-api.com/subscriptions/confirm";
+    let html_body = format!(
+        "Welcome to our newsletter!<br />\
+                 Click <a href=\"{}\">here</a> to confirm your subscription.",
+        confirmation_link
+    );
+
+    email_client
+        .send_email(
+            new_subscriber.email,
+            "Welcome!",
+            &html_body,
+        )
+        .await
 }
