@@ -1,6 +1,6 @@
 use crate::configuration::{DatabaseSettings, Settings};
 use crate::email_client::EmailClient;
-use crate::routes::{health_check, subscribe};
+use crate::routes::{confirm, health_check, subscribe};
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
 use sqlx::postgres::PgPoolOptions;
@@ -12,16 +12,21 @@ fn run(
     listener: TcpListener,
     database_pool: PgPool,
     email_client: EmailClient,
+    base_url: String,
 ) -> Result<Server, std::io::Error> {
     let database_connection = web::Data::new(database_pool);
     let email_client = web::Data::new(email_client);
+    let base_url = web::Data::new(ApplicationBaseUrl(base_url));
+
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
             .route("/health", web::get().to(health_check))
             .route("/subscribe", web::post().to(subscribe))
+            .route("/subscriptions/confirm", web::get().to(confirm))
             .app_data(database_connection.clone())
             .app_data(email_client.clone())
+            .app_data(base_url.clone())
     })
     .listen(listener)?
     .run();
@@ -62,7 +67,12 @@ impl Application {
         );
         let listener = TcpListener::bind(address).expect("Failed to bind a random port");
         let port = listener.local_addr().unwrap().port();
-        let server = run(listener, database_pool, email_client)?;
+        let server = run(
+            listener,
+            database_pool,
+            email_client,
+            configuration.application_settings.base_url,
+        )?;
 
         Ok(Self { port, server })
     }
@@ -75,3 +85,5 @@ impl Application {
         self.server.await
     }
 }
+
+pub struct ApplicationBaseUrl(pub String);

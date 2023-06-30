@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
-use wiremock::MockServer;
+use wiremock::{MockServer, Request};
 use zero2prod::configuration::{DatabaseSettings, Settings};
 use zero2prod::startup::{get_connection, Application};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
@@ -21,6 +21,7 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 
 pub struct TestApp {
     pub address: String,
+    pub port: u16,
     pub db_poll: PgPool,
     pub email_server: MockServer,
 }
@@ -44,12 +45,13 @@ pub async fn spawn_app() -> TestApp {
     let application = Application::build(configuration.clone())
         .await
         .expect("Failed to build application.");
-    let address = format!("http://127.0.0.1:{}", application.port());
+    let application_port = application.port();
 
     let _ = tokio::spawn(application.run_until_stopped());
 
     TestApp {
-        address,
+        address: format!("http://127.0.0.1:{}", application_port),
+        port: application_port,
         db_poll: get_connection(&configuration.database_settings),
         email_server,
     }
@@ -87,4 +89,36 @@ impl TestApp {
             .await
             .expect("Failed to send the error")
     }
+
+    pub fn get_confirmation_link(&self, email_request: &Request) -> ConfirmationLink {
+        let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
+
+        let get_link = |s: &str| {
+            let link: Vec<_> = linkify::LinkFinder::new()
+                .links(s)
+                .filter(|l| *l.kind() == linkify::LinkKind::Url)
+                .collect();
+
+            assert_eq!(link.len(), 1);
+
+            let raw_link = link[0].as_str().to_owned();
+            let mut confirmation_link = reqwest::Url::parse(&raw_link).unwrap();
+
+            assert_eq!("127.0.0.1", confirmation_link.host_str().unwrap());
+
+            confirmation_link.set_port(Some(self.port)).unwrap();
+
+            confirmation_link
+        };
+
+        let html_confirmation_link = get_link(&body["htmlContent"].as_str().unwrap());
+
+        ConfirmationLink {
+            html_confirmation_link,
+        }
+    }
+}
+
+pub struct ConfirmationLink {
+    pub html_confirmation_link: reqwest::Url,
 }

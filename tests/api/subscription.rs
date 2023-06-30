@@ -59,21 +59,12 @@ async fn subscribe_send_a_confirmation_email_for_valid_data() {
     test_app.subscribe_request(body.into()).await;
 
     let email_request = &test_app.email_server.received_requests().await.unwrap()[0];
-    let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
+    let confirmation_link = test_app.get_confirmation_link(email_request);
 
-    let get_link = |s: &str| {
-        let link: Vec<_> = linkify::LinkFinder::new()
-            .links(s)
-            .filter(|l| *l.kind() == linkify::LinkKind::Url)
-            .collect();
-
-        assert_eq!(link.len(), 1);
-        link[0].as_str().to_owned()
-    };
-
-    let html_link = get_link(&body["htmlContent"].as_str().unwrap());
-
-    assert_eq!("https://my-api.com/subscriptions/confirm", html_link);
+    assert_eq!(
+        "/subscriptions/confirm",
+        confirmation_link.html_confirmation_link.path()
+    );
 }
 
 #[tokio::test]
