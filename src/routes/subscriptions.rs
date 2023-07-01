@@ -26,12 +26,8 @@ impl TryFrom<SubscribeData> for NewSubscriber {
 }
 
 #[tracing::instrument(
-name = "Adding new subscriber.",
-skip(subscribe_data, connection, email_client, base_url),
-fields(
-subscriber_name = % subscribe_data.name,
-subscriber_email = % subscribe_data.email
-)
+    name = "Adding new subscriber.",
+    skip(subscribe_data, connection, email_client, base_url)
 )]
 pub async fn subscribe(
     subscribe_data: web::Form<SubscribeData>,
@@ -63,6 +59,7 @@ pub async fn subscribe(
     }
 
     if transaction.commit().await.is_err() {
+        tracing::error!("failed to commit");
         return HttpResponse::InternalServerError().finish();
     }
 
